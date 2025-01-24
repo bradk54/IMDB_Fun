@@ -1,7 +1,8 @@
 ```bash
-new-project
+IMDB Modeling Project
 ========================
 Description:
+Goal is to quantify who are the best Directors, actors etc on a modeling level
 
 Projection Organization
 -------------

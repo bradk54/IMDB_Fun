@@ -1,3 +1,16 @@
 # ignore all .a files
 *.code-workspace
 *.tsv.gz
+*.DS_Store
+*.pyc
+*.pkl
+*.pickle
+*.hdf5
+*.jsonl
+*.json
+*.csv
+*.tsv
+*.db
+*.sqlite3
+*.log
+__pycache__
