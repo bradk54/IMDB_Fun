@@ -1,2 +1,3 @@
 # ignore all .a files
 *.code-workspace
+*.tsv.gz
