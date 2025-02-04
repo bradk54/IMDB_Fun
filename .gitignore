@@ -20,5 +20,8 @@ __pycache__
 # vs code
 .vscode/
 
-#exclude dta
+#exclude data
 /data/
+
+# explde api key
+/src/data/*.json

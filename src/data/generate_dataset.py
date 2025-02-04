@@ -1,6 +1,12 @@
+from operator import ne
+from urllib import response
 import polars as pl
+import pandas as pd
+import numpy as np
 import os
 import logging
+import requests
+# from tqmd import tqdm
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -204,3 +210,67 @@ def fetch_movie_data(imdb_film_id: str, api_key: str):
         return response.json()
     else:
         return None
+
+
+def load_cached_omdb_data(CSV_FILE: str = None) -> pd.DataFrame:
+    """Load the previously saved responses from CSV."""
+    if not CSV_FILE:
+        # If no path is provided, use the default static path
+        CSV_FILE = "/Users/bradkittrell/Projects/imdb/IMDB_Fun/Data/external/omdb.csv"
+        logging.info(f"No path provided. Using default path: {CSV_FILE}")
+    if os.path.exists(CSV_FILE):
+        # Ensure IMDb IDs are treated as strings
+        return pd.read_csv(CSV_FILE, dtype=str)
+    static_cols = ['Title', 'Year', 'Rated', 'Released', 'Runtime', 'Genre', 'Director',
+                   'Writer', 'Actors', 'Plot', 'Language', 'Country', 'Awards', 'Poster',
+                   'Ratings', 'Metascore', 'imdbRating', 'imdbVotes', 'imdbID', 'Type',
+                   'DVD', 'BoxOffice', 'Production', 'Website', 'Response', 'RatingSource',
+                   'RatingValue']
+    return pd.DataFrame(columns=static_cols)
+
+
+def response_to_df(response):
+    """
+    Helper function designed to convert the response from the OMDB API into a DataFrame.
+
+    Args:
+        response (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    _ = pd.DataFrame(response)
+    _['RatingSource'] = _["Ratings"].apply(lambda x: x.get('Source'))
+    _['RatingValue'] = _["Ratings"].apply(lambda x: x.get('Value'))
+
+    return _
+
+
+def process_omdb_ids(imdb_ids: list[str], CSV_FILE: str = None) -> pd.DataFrame:
+    """Check cached repository for existing data and fetch new data if necessary."""
+    df_cache = load_cached_omdb_data()
+
+    # Convert existing IMDb IDs to a set for fast lookup
+    cached_ids = set(df_cache["imdbID"].tolist())
+
+    new_data = []
+    for imdb_id in imdb_ids:
+        if imdb_id not in cached_ids:  # Fetch only if not in cache
+            print(f"Fetching data for {imdb_id}...")
+            data = fetch_movie_data(imdb_film_id=imdb_id, api_key="95497563")
+            # Check valid response
+            # convert to date frame and
+            data_ = response_to_df(data)
+            new_data.append(data_)
+
+    # Convert new data to DataFrame and append to cache
+    if new_data:
+        df_new = pd.concat(new_data, ignore_index=True)
+        df_cache = pd.concat([df_cache, df_new], ignore_index=True)
+        if not CSV_FILE:
+            CSV_FILE = "/Users/bradkittrell/Projects/imdb/IMDB_Fun/Data/external/omdb.csv"
+            logging.info(f"No path provided. Using default path: {CSV_FILE}")
+        df_cache.to_csv(CSV_FILE, index=False)  # Save updated cache
+        print(f"Updated cache with {len(new_data)} new entries.")
+
+    return df_cache
