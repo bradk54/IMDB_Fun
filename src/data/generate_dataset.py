@@ -246,7 +246,7 @@ def response_to_df(response):
     return _
 
 
-def process_omdb_ids(imdb_ids: list[str], CSV_FILE: str = None) -> pd.DataFrame:
+def process_omdb_ids(api_key: str, imdb_ids: list[str], CSV_FILE: str = None) -> pd.DataFrame:
     """Check cached repository for existing data and fetch new data if necessary."""
     df_cache = load_cached_omdb_data()
 
@@ -257,7 +257,7 @@ def process_omdb_ids(imdb_ids: list[str], CSV_FILE: str = None) -> pd.DataFrame:
     for imdb_id in imdb_ids:
         if imdb_id not in cached_ids:  # Fetch only if not in cache
             print(f"Fetching data for {imdb_id}...")
-            data = fetch_movie_data(imdb_film_id=imdb_id, api_key="95497563")
+            data = fetch_movie_data(imdb_film_id=imdb_id, api_key=api_key)
             # Check valid response
             # convert to date frame and
             data_ = response_to_df(data)
