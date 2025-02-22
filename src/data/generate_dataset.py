@@ -274,3 +274,22 @@ def process_omdb_ids(api_key: str, imdb_ids: list[str], CSV_FILE: str = None) ->
         print(f"Updated cache with {len(new_data)} new entries.")
 
     return df_cache
+
+
+def select_films_by_director(directors : list[str])-> pl.DataFrame:
+    """
+    Select films by a list of directors.
+
+    Args:
+        directors (list[str]): List of director names.
+
+    Returns:
+        pl.DataFrame: DataFrame containing films directed by the specified directors.
+    """
+    names = load_names(None)
+    film_crew = load_crew(None)
+    films = load_title_basics(None)
+    
+    
+
+    return selected_films
