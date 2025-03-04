@@ -252,31 +252,58 @@ def process_omdb_ids(api_key: str, imdb_ids: list[str], CSV_FILE: str = None) ->
 
     # Convert existing IMDb IDs to a set for fast lookup
     cached_ids = set(df_cache["imdbID"].tolist())
-
+    counter = 0
+    null_counter = 0
     new_data = []
     for imdb_id in imdb_ids:
         if imdb_id not in cached_ids:  # Fetch only if not in cache
-            print(f"Fetching data for {imdb_id}...")
+            counter += 1
             data = fetch_movie_data(imdb_film_id=imdb_id, api_key=api_key)
+            # verify type
+            if data is None:
+                logging.error(f"Failed to fetch data for {imdb_id}")
+                null_counter += 1
+                if null_counter > 100:
+                    logging.error(
+                        f"Null counter exceeded limit for {imdb_id}. Stopping fetch.")
+                    break
+                continue
+            else:
+                # reset null counter to 0
+                null_counter = 0
+
             # Check valid response
             # convert to date frame and
-            data_ = response_to_df(data)
-            new_data.append(data_)
+            if "Ratings" in data:
+                new_data.append(response_to_df(data))
+            else:
+                new_data.append(pd.DataFrame(data))
 
-    # Convert new data to DataFrame and append to cache
-    if new_data:
-        df_new = pd.concat(new_data, ignore_index=True)
-        df_cache = pd.concat([df_cache, df_new], ignore_index=True)
-        if not CSV_FILE:
-            CSV_FILE = "/Users/bradkittrell/Projects/imdb/IMDB_Fun/Data/external/omdb.csv"
-            logging.info(f"No path provided. Using default path: {CSV_FILE}")
-        df_cache.to_csv(CSV_FILE, index=False)  # Save updated cache
-        print(f"Updated cache with {len(new_data)} new entries.")
+            if counter % 10 == 0:
+                df_new = pd.concat(new_data, ignore_index=True)
+                df_cache_updated = pd.concat(
+                    [df_cache, df_new], ignore_index=True)
+                if not CSV_FILE:
+                    CSV_FILE = "/Users/bradkittrell/Projects/imdb/IMDB_Fun/Data/external/omdb.csv"
+                    logging.info(
+                        f"No path provided. Using default path: {CSV_FILE}")
+                print(f"Updated cache with {len(new_data)} new entries.")
+                df_cache_updated.to_csv(
+                    CSV_FILE, index=False)  # Save updated cache
 
-    return df_cache
+    # # Convert new data to DataFrame and append to cache
+    # if new_data:
+    #     df_new = pd.concat(new_data, ignore_index=True)
+    #     df_cache = pd.concat([df_cache, df_new], ignore_index=True)
+    #     if not CSV_FILE:
+    #         CSV_FILE = "/Users/bradkittrell/Projects/imdb/IMDB_Fun/Data/external/omdb.csv"
+    #         logging.info(f"No path provided. Using default path: {CSV_FILE}")
+    #     df_cache.to_csv(CSV_FILE, index=False)  # Save updated cache
+
+    return df_cache_updated
 
 
-def select_films_by_director(directors : list[str])-> pl.DataFrame:
+def select_films_by_director(directors: list[str]) -> pl.DataFrame:
     """
     Select films by a list of directors.
 
@@ -289,7 +316,50 @@ def select_films_by_director(directors : list[str])-> pl.DataFrame:
     names = load_names(None)
     film_crew = load_crew(None)
     films = load_title_basics(None)
-    
-    
 
     return selected_films
+
+
+def directors_greater_n_films(n: int) -> pl.DataFrame:
+    """_summary_
+    Assuming only films greater than 1 hour to 5 hrs
+
+    Args:
+        n (int): _description_
+
+    Returns:
+        pl.DataFrame: _description_
+    """
+    names = load_names(None)
+    film_crew = load_crew(None)
+    films = load_title_basics(None)
+
+    dir_counts = films.join(film_crew, on="tconst").filter(
+        (pl.col("runtimeMinutes") > 60) & (pl.col("runtimeMinutes") < 60*5)).group_by("directors").agg(pl.col('directors').count().alias('num_films'))
+    dir_counts = dir_counts.join(names, left_on="directors", right_on="nconst")
+
+    dir_counts = dir_counts.select(
+        ["directors", "num_films", "primaryName", "birthYear", "deathYear"]).filter(pl.col("num_films") > n).with_columns(pl.col("directors").alias("nconst")).drop("directors")
+    return dir_counts
+
+
+def clean_imdb_director_films(n_films: int) -> pl.DataFrame:
+    """
+    Select films directed by directors with more than n films.
+    Args:
+        n_films (int): Number of films.
+    Returns:
+        pl.DataFrame: DataFrame containing films directed by directors with more than n films.
+    """
+    n_dirs = directors_greater_n_films(n_films)
+    n_dirs_list = n_dirs["nconst"].to_list()
+    # read films d ata
+    films = load_title_basics(None)
+    film_crew = load_crew(None)
+
+    films = films.join(film_crew, on="tconst").filter(
+        (pl.col("runtimeMinutes") > 60) & (pl.col("runtimeMinutes") < 60*5)).filter(pl.col("directors").is_in(n_dirs_list))
+
+    films = films.join(n_dirs, left_on="directors", right_on="nconst")
+
+    return films.drop("isAdult", "endYear", "titleType")
