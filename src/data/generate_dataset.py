@@ -335,11 +335,15 @@ def directors_greater_n_films(n: int) -> pl.DataFrame:
     films = load_title_basics(None)
 
     dir_counts = films.join(film_crew, on="tconst").filter(
-        (pl.col("runtimeMinutes") > 60) & (pl.col("runtimeMinutes") < 60*5)).group_by("directors").agg(pl.col('directors').count().alias('num_films'))
+        (pl.col("runtimeMinutes") > 60) & (pl.col("runtimeMinutes") < 60*5))
+    dir_counts = dir_counts.group_by("directors").agg([pl.count('directors').alias('num_films'),
+                                                       pl.min('startYear').alias(
+                                                           'first_year'),
+                                                       pl.max('startYear').alias('last_year')])
     dir_counts = dir_counts.join(names, left_on="directors", right_on="nconst")
 
     dir_counts = dir_counts.select(
-        ["directors", "num_films", "primaryName", "birthYear", "deathYear"]).filter(pl.col("num_films") > n).with_columns(pl.col("directors").alias("nconst")).drop("directors")
+        ["directors", "num_films", "primaryName", "birthYear", "deathYear",  'first_year', 'last_year']).filter(pl.col("num_films") > n).with_columns(pl.col("directors").alias("nconst")).drop("directors")
     return dir_counts
 
 
