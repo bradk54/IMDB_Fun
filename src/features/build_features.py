@@ -39,6 +39,8 @@ def normalized_yearly_directors(start_year: int, end_year: int, director_ids: li
     names = generate_dataset.load_names(None)
     names = names.filter((pl.col("nconst").is_in(director_ids)))
 
+    directors = generate_dataset.directors_greater_n_films(3)
+
     data = pl.DataFrame({
         "director": names['primaryName'].to_list(),
         "nconst": names['nconst'].to_list(),
@@ -48,5 +50,8 @@ def normalized_yearly_directors(start_year: int, end_year: int, director_ids: li
     })
     data = data.explode("year")
     # drop locations where
-
+    data = data.join(directors, left_on="nconst",
+                     right_on="nconst", how="left")
+    data = data.filter((pl.col("year") >= pl.col(
+        "first_year")) & (pl.col("year") <= pl.col("last_year")))
     return data

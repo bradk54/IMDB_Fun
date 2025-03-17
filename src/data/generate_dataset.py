@@ -365,5 +365,8 @@ def clean_imdb_director_films(n_films: int) -> pl.DataFrame:
         (pl.col("runtimeMinutes") > 60) & (pl.col("runtimeMinutes") < 60*5)).filter(pl.col("directors").is_in(n_dirs_list))
 
     films = films.join(n_dirs, left_on="directors", right_on="nconst")
+    # prep  ratings
+    rating = load_ratings_imdb(None)
+    films = films.join(rating, on="tconst")
 
     return films.drop("isAdult", "endYear", "titleType")
